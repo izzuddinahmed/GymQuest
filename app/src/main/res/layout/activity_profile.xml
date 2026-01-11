@@ -1,10 +1,82 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ProfileActivity">
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:background="@color/cream_background"
+    android:padding="20dp">
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <androidx.cardview.widget.CardView
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        app:cardCornerRadius="60dp"
+        app:cardElevation="5dp"
+        android:layout_marginTop="40dp"
+        android:layout_marginBottom="20dp">
+
+        <ImageView
+            android:id="@+id/imgProfilePic"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/ic_person"
+            android:scaleType="centerCrop"
+            android:background="#E0E0E0"/>
+
+    </androidx.cardview.widget.CardView>
+    <TextView
+        android:id="@+id/tvUserName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Guest User"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="@color/dark_green"
+        android:layout_marginBottom="5dp"/>
+
+    <TextView
+        android:id="@+id/tvUserEmail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="user@example.com"
+        android:textSize="18sp"
+        android:textColor="#757575"
+        android:layout_marginBottom="40dp"/>
+
+    <Button
+        android:id="@+id/btnEditProfile"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:text="Edit Profile"
+        android:backgroundTint="#FFFFFF"
+        android:textColor="#0D47A1"
+        android:textAlignment="viewStart"
+        android:paddingStart="20dp"
+        android:elevation="4dp"
+        android:layout_marginBottom="15dp"/>
+
+    <Button
+        android:id="@+id/btnChangePassword"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:text="Change Password"
+        android:backgroundTint="@color/accent_orange"
+        android:textColor="@color/white"
+        android:textAlignment="viewStart"
+        android:paddingStart="20dp"
+        android:elevation="4dp"
+        android:layout_marginBottom="15dp"/>
+
+    <Button
+        android:id="@+id/btnLogout"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:text="Log Out"
+        android:backgroundTint="@color/white"
+        android:textColor="@color/dark_green"
+        android:textStyle="bold"
+        android:elevation="4dp"
+        android:layout_marginTop="30dp"/>
+
+</LinearLayout>
