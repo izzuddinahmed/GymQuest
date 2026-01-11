@@ -30,6 +30,8 @@ import java.util.Map;
 
 public class AddGymActivity extends AppCompatActivity {
 
+
+    //testing
     private EditText etGymName;
     private TextView tvLocationStatus; // This is the new Text View
     private Button btnTakePhoto, btnSaveGym, btnOpenMap;
