@@ -66,6 +66,15 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
             startActivity(intent);
         });
 
+        // --- NEW CODE START ---
+        // 3. Setup "View List" Button
+        Button btnList = findViewById(R.id.btnViewList);
+        btnList.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, GymListActivity.class);
+            startActivity(intent);
+        });
+        // --- NEW CODE END ---
+
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         if (mapFragment != null) {

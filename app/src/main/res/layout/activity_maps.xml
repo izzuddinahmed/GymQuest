@@ -19,7 +19,21 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="20dp"
         android:backgroundTint="@color/accent_orange"
-        android:textColor="@color/white" />
+        android:textColor="@color/white"
+        android:elevation="6dp"/>
+
+    <Button
+        android:id="@+id/btnViewList"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Gym List"
+        android:drawableLeft="@android:drawable/ic_menu_sort_by_size"
+        android:drawablePadding="8dp"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="20dp"
+        android:backgroundTint="@color/sage_green"
+        android:textColor="@color/white"
+        android:elevation="6dp"/>
 
     <ImageButton
         android:id="@+id/btnProfile"

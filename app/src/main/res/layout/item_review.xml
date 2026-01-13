@@ -38,6 +38,18 @@
                 android:numStars="5"
                 android:rating="5"
                 android:progressTint="#FFC107"/>
+
+            <ImageView
+                android:id="@+id/btnDeleteReview"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_delete"
+                app:tint="#FF0000"
+                android:layout_marginStart="12dp"
+                android:visibility="gone"
+                android:clickable="true"
+                android:focusable="true"/>
+
         </LinearLayout>
 
         <TextView

@@ -1,9 +1,11 @@
 package com.example.gymquest;
 
-import android.content.DialogInterface;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.InputType;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -23,6 +25,7 @@ public class ProfileActivity extends AppCompatActivity {
 
     private TextView tvEmail, tvName;
     private Button btnLogout, btnEditProfile, btnChangePassword;
+    private Button btnAdmin;
     private FirebaseUser user;
 
     @Override
@@ -36,6 +39,7 @@ public class ProfileActivity extends AppCompatActivity {
         btnLogout = findViewById(R.id.btnLogout);
         btnEditProfile = findViewById(R.id.btnEditProfile);
         btnChangePassword = findViewById(R.id.btnChangePassword);
+        btnAdmin = findViewById(R.id.btnAdminDashboard);
 
         // Get Current User
         user = FirebaseAuth.getInstance().getCurrentUser();
@@ -50,9 +54,35 @@ public class ProfileActivity extends AppCompatActivity {
             }
         }
 
-        // 2. Button: Logout
+        // --- ADMIN DASHBOARD LOGIC ---
+        SharedPreferences prefs = getSharedPreferences("GymAppPrefs", Context.MODE_PRIVATE);
+        boolean isAdmin = prefs.getBoolean("isAdmin", false);
+
+        if (isAdmin) {
+            btnAdmin.setVisibility(View.VISIBLE);
+            btnAdmin.setOnClickListener(v -> {
+                Intent intent = new Intent(ProfileActivity.this, AdminDashboardActivity.class);
+                startActivity(intent);
+            });
+        } else {
+            btnAdmin.setVisibility(View.GONE);
+        }
+        // ----------------------------------
+
+        // 2. Button: Logout (UPDATED WITH FIX)
         btnLogout.setOnClickListener(v -> {
+            // 1. Sign out from Firebase
             FirebaseAuth.getInstance().signOut();
+
+            // 2. --- NEW FIX: WIPE THE ADMIN MEMORY ---
+            // This ensures the next user doesn't inherit admin rights by accident
+            getSharedPreferences("GymAppPrefs", MODE_PRIVATE)
+                    .edit()
+                    .clear() // This deletes all saved data (like isAdmin)
+                    .apply();
+            // -----------------------------------------
+
+            // 3. Go to Login
             Intent intent = new Intent(ProfileActivity.this, LoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
@@ -111,18 +141,15 @@ public class ProfileActivity extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Change Password");
 
-        // We need a Layout to hold TWO input boxes
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(50, 20, 50, 20);
 
-        // Input 1: Old Password
         final EditText etOldPass = new EditText(this);
         etOldPass.setHint("Current Password");
         etOldPass.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         layout.addView(etOldPass);
 
-        // Input 2: New Password
         final EditText etNewPass = new EditText(this);
         etNewPass.setHint("New Password");
         etNewPass.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
@@ -144,7 +171,6 @@ public class ProfileActivity extends AppCompatActivity {
                 return;
             }
 
-            // Perform the Re-Authentication and Update
             performPasswordUpdate(oldPass, newPass);
         });
 
@@ -154,13 +180,10 @@ public class ProfileActivity extends AppCompatActivity {
 
     private void performPasswordUpdate(String oldPass, String newPass) {
         if (user != null && user.getEmail() != null) {
-            // 1. Create Credentials for Re-Authentication
             AuthCredential credential = EmailAuthProvider.getCredential(user.getEmail(), oldPass);
 
-            // 2. Re-Authenticate the User
             user.reauthenticate(credential).addOnCompleteListener(task -> {
                 if (task.isSuccessful()) {
-                    // 3. Re-Auth Success! Now Update Password
                     user.updatePassword(newPass).addOnCompleteListener(task1 -> {
                         if (task1.isSuccessful()) {
                             Toast.makeText(ProfileActivity.this, "Password Changed Successfully!", Toast.LENGTH_SHORT).show();

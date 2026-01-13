@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.util.Base64;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -20,7 +21,7 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale; // --- NEW IMPORT for Safe Formatting ---
+import java.util.Locale;
 import java.util.Map;
 
 public class GymDetailActivity extends AppCompatActivity {
@@ -28,6 +29,9 @@ public class GymDetailActivity extends AppCompatActivity {
     private RecyclerView rvReviews;
     private ReviewsAdapter adapter;
     private List<Map<String, Object>> reviewList;
+
+    private RatingBar rbAvg;
+    private TextView tvAvgInfo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,22 +42,19 @@ public class GymDetailActivity extends AppCompatActivity {
         ImageView imgGym = findViewById(R.id.imgDetail);
         Button btnClose = findViewById(R.id.btnClose);
         Button btnReview = findViewById(R.id.btnWriteReview);
-
-        // --- Bind the Navigate Button ---
         Button btnNavigate = findViewById(R.id.btnNavigate);
 
-        // Setup RecyclerView
+        rbAvg = findViewById(R.id.rbAverageRating);
+        tvAvgInfo = findViewById(R.id.tvAverageInfo);
+
         rvReviews = findViewById(R.id.rvReviews);
         rvReviews.setLayoutManager(new LinearLayoutManager(this));
         reviewList = new ArrayList<>();
         adapter = new ReviewsAdapter(reviewList);
         rvReviews.setAdapter(adapter);
 
-        // Get data passed from MainActivity
         String name = getIntent().getStringExtra("GYM_NAME");
         String imageStr = getIntent().getStringExtra("GYM_IMAGE");
-
-        // --- Get Coordinates ---
         double lat = getIntent().getDoubleExtra("GYM_LAT", 0.0);
         double lng = getIntent().getDoubleExtra("GYM_LNG", 0.0);
 
@@ -65,28 +66,20 @@ public class GymDetailActivity extends AppCompatActivity {
             imgGym.setImageBitmap(decodedByte);
         }
 
-        // LOAD REVIEWS
         loadReviews(name);
 
-        // --- UPDATED: Handle Navigation Click with Safety Fix ---
         btnNavigate.setOnClickListener(v -> {
-            // Check for invalid coordinates
             if (lat == 0.0 && lng == 0.0) {
                 Toast.makeText(this, "Invalid Coordinates for this Gym", Toast.LENGTH_SHORT).show();
                 return;
             }
-
-            // Use Locale.US to force a dot (.) separator, preventing errors on devices using commas
             String uriString = String.format(Locale.US, "google.navigation:q=%f,%f", lat, lng);
             Uri gmmIntentUri = Uri.parse(uriString);
-
             Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
-            mapIntent.setPackage("com.google.android.apps.maps"); // Force Google Maps app
-
+            mapIntent.setPackage("com.google.android.apps.maps");
             try {
                 startActivity(mapIntent);
             } catch (Exception e) {
-                // If Google Maps is not installed, show a message
                 Toast.makeText(GymDetailActivity.this, "Google Maps not installed", Toast.LENGTH_SHORT).show();
             }
         });
@@ -100,7 +93,6 @@ public class GymDetailActivity extends AppCompatActivity {
         btnClose.setOnClickListener(v -> finish());
     }
 
-    // Refresh reviews when we come back from "Add Review" page
     @Override
     protected void onResume() {
         super.onResume();
@@ -126,9 +118,37 @@ public class GymDetailActivity extends AppCompatActivity {
                                 .get()
                                 .addOnSuccessListener(reviewsSnapshot -> {
                                     reviewList.clear();
+
+                                    double totalScore = 0;
+                                    int count = 0;
+
                                     for (QueryDocumentSnapshot doc : reviewsSnapshot) {
-                                        reviewList.add(doc.getData());
+                                        // --- CRITICAL FIX: SAVE IDs FOR DELETION ---
+                                        Map<String, Object> reviewData = doc.getData();
+                                        reviewData.put("reviewId", doc.getId()); // Save the Review ID
+                                        reviewData.put("gymId", gymId);          // Save the Gym ID
+
+                                        reviewList.add(reviewData);
+                                        // -------------------------------------------
+
+                                        if (doc.contains("rating")) {
+                                            Double rating = doc.getDouble("rating");
+                                            if (rating != null) {
+                                                totalScore += rating;
+                                                count++;
+                                            }
+                                        }
                                     }
+
+                                    if (count > 0) {
+                                        double average = totalScore / count;
+                                        rbAvg.setRating((float) average);
+                                        tvAvgInfo.setText(String.format(Locale.US, "%.1f (%d reviews)", average, count));
+                                    } else {
+                                        rbAvg.setRating(0);
+                                        tvAvgInfo.setText("No reviews yet");
+                                    }
+
                                     adapter.notifyDataSetChanged();
                                 });
                     }
