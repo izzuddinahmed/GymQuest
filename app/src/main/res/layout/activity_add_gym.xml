@@ -39,6 +39,42 @@
             android:paddingStart="15dp"
             android:layout_marginBottom="20dp"/>
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Phone Number"
+            android:textStyle="bold"
+            android:layout_marginBottom="5dp"
+            android:textColor="#555555"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Description"
+            android:textStyle="bold"
+            android:layout_marginBottom="5dp"
+            android:textColor="#555555"/>
+
+        <EditText
+            android:id="@+id/etGymDesc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minLines="3"
+            android:gravity="top|start"
+            android:background="@drawable/input_background"
+            android:hint="e.g. Spacious gym with 24/7 access, sauna, and pool."
+            android:padding="15dp"
+            android:layout_marginBottom="20dp"/>
+
+        <EditText
+            android:id="@+id/etGymPhone"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:background="@drawable/input_background"
+            android:hint="e.g. 03-55442200"
+            android:inputType="phone"
+            android:paddingStart="15dp"
+            android:layout_marginBottom="20dp"/>
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

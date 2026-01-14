@@ -1,25 +1,33 @@
 package com.example.gymquest;
 
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.InputType;
 import android.util.Base64;
+import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -32,6 +40,15 @@ public class GymDetailActivity extends AppCompatActivity {
 
     private RatingBar rbAvg;
     private TextView tvAvgInfo;
+    private TextView tvDescription; // --- NEW
+
+    private Button btnContact;
+    private Button btnEditPhone;
+    private Button btnEditDesc; // --- NEW BUTTON
+
+    private String gymPhoneNumber = "";
+    private String gymDescription = ""; // --- NEW VARIABLE
+    private String currentGymId = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +60,12 @@ public class GymDetailActivity extends AppCompatActivity {
         Button btnClose = findViewById(R.id.btnClose);
         Button btnReview = findViewById(R.id.btnWriteReview);
         Button btnNavigate = findViewById(R.id.btnNavigate);
+
+        btnContact = findViewById(R.id.btnContactUs);
+        btnEditPhone = findViewById(R.id.btnEditPhone);
+        btnEditDesc = findViewById(R.id.btnEditDesc); // --- BIND NEW BUTTON
+
+        tvDescription = findViewById(R.id.tvDescription); // --- BIND NEW TEXTVIEW
 
         rbAvg = findViewById(R.id.rbAverageRating);
         tvAvgInfo = findViewById(R.id.tvAverageInfo);
@@ -66,11 +89,37 @@ public class GymDetailActivity extends AppCompatActivity {
             imgGym.setImageBitmap(decodedByte);
         }
 
+        // --- CHECK ADMIN STATUS ---
+        SharedPreferences prefs = getSharedPreferences("GymAppPrefs", MODE_PRIVATE);
+        boolean isAdmin = prefs.getBoolean("isAdmin", false);
+
+        if (isAdmin) {
+            btnEditPhone.setVisibility(View.VISIBLE);
+            btnEditDesc.setVisibility(View.VISIBLE); // --- SHOW BUTTON FOR ADMIN
+        } else {
+            btnEditPhone.setVisibility(View.GONE);
+            btnEditDesc.setVisibility(View.GONE);
+        }
+
         loadReviews(name);
+
+        // --- BUTTON LISTENERS ---
+        btnEditPhone.setOnClickListener(v -> showEditPhoneDialog());
+        btnEditDesc.setOnClickListener(v -> showEditDescriptionDialog()); // --- NEW LISTENER
+
+        btnContact.setOnClickListener(v -> {
+            if (gymPhoneNumber != null && !gymPhoneNumber.isEmpty()) {
+                Intent intent = new Intent(Intent.ACTION_DIAL);
+                intent.setData(Uri.parse("tel:" + gymPhoneNumber));
+                startActivity(intent);
+            } else {
+                Toast.makeText(GymDetailActivity.this, "Phone number not available", Toast.LENGTH_SHORT).show();
+            }
+        });
 
         btnNavigate.setOnClickListener(v -> {
             if (lat == 0.0 && lng == 0.0) {
-                Toast.makeText(this, "Invalid Coordinates for this Gym", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Invalid Coordinates", Toast.LENGTH_SHORT).show();
                 return;
             }
             String uriString = String.format(Locale.US, "google.navigation:q=%f,%f", lat, lng);
@@ -102,34 +151,121 @@ public class GymDetailActivity extends AppCompatActivity {
         }
     }
 
+    // --- NEW: EDIT DESCRIPTION DIALOG ---
+    private void showEditDescriptionDialog() {
+        if (currentGymId == null || currentGymId.isEmpty()) return;
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Update Description");
+
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        input.setLines(4);
+        input.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        input.setText(gymDescription); // Pre-fill current text
+        builder.setView(input);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            String newDesc = input.getText().toString().trim();
+            updateDescriptionInDatabase(newDesc);
+        });
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        builder.show();
+    }
+
+    private void updateDescriptionInDatabase(String newDesc) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("description", newDesc);
+
+        db.collection("Gyms").document(currentGymId)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(GymDetailActivity.this, "Description updated!", Toast.LENGTH_SHORT).show();
+                    gymDescription = newDesc;
+                    tvDescription.setText(newDesc.isEmpty() ? "No description available." : newDesc);
+                })
+                .addOnFailureListener(e -> Toast.makeText(GymDetailActivity.this, "Error updating description", Toast.LENGTH_SHORT).show());
+    }
+
+    // --- EXISTING: EDIT PHONE DIALOG ---
+    private void showEditPhoneDialog() {
+        if (currentGymId == null || currentGymId.isEmpty()) return;
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Update Phone Number");
+
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_PHONE);
+        input.setText(gymPhoneNumber);
+        builder.setView(input);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            String newPhone = input.getText().toString().trim();
+            updatePhoneInDatabase(newPhone);
+        });
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        builder.show();
+    }
+
+    private void updatePhoneInDatabase(String newPhone) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("phone", newPhone);
+
+        db.collection("Gyms").document(currentGymId)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(GymDetailActivity.this, "Phone number updated!", Toast.LENGTH_SHORT).show();
+                    gymPhoneNumber = newPhone;
+                    if (!newPhone.isEmpty()) btnContact.setVisibility(View.VISIBLE);
+                })
+                .addOnFailureListener(e -> Toast.makeText(GymDetailActivity.this, "Error updating phone", Toast.LENGTH_SHORT).show());
+    }
+
     private void loadReviews(String gymName) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-        // 1. Find the Gym ID by Name
         db.collection("Gyms")
                 .whereEqualTo("name", gymName)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     if (!queryDocumentSnapshots.isEmpty()) {
-                        String gymId = queryDocumentSnapshots.getDocuments().get(0).getId();
+                        DocumentSnapshot gymDoc = queryDocumentSnapshots.getDocuments().get(0);
+                        currentGymId = gymDoc.getId();
 
-                        // 2. Fetch the Reviews Sub-collection
-                        db.collection("Gyms").document(gymId).collection("Reviews")
+                        // Load Phone
+                        if (gymDoc.contains("phone")) {
+                            gymPhoneNumber = gymDoc.getString("phone");
+                            btnContact.setVisibility(View.VISIBLE);
+                        } else {
+                            gymPhoneNumber = "";
+                            btnContact.setVisibility(View.GONE);
+                        }
+
+                        // --- NEW: Load Description ---
+                        if (gymDoc.contains("description")) {
+                            gymDescription = gymDoc.getString("description");
+                            tvDescription.setText(gymDescription.isEmpty() ? "No description available." : gymDescription);
+                        } else {
+                            gymDescription = "";
+                            tvDescription.setText("No description available.");
+                        }
+                        // -----------------------------
+
+                        // Load Reviews
+                        db.collection("Gyms").document(currentGymId).collection("Reviews")
                                 .get()
                                 .addOnSuccessListener(reviewsSnapshot -> {
                                     reviewList.clear();
-
                                     double totalScore = 0;
                                     int count = 0;
 
                                     for (QueryDocumentSnapshot doc : reviewsSnapshot) {
-                                        // --- CRITICAL FIX: SAVE IDs FOR DELETION ---
                                         Map<String, Object> reviewData = doc.getData();
-                                        reviewData.put("reviewId", doc.getId()); // Save the Review ID
-                                        reviewData.put("gymId", gymId);          // Save the Gym ID
-
+                                        reviewData.put("reviewId", doc.getId());
+                                        reviewData.put("gymId", currentGymId);
                                         reviewList.add(reviewData);
-                                        // -------------------------------------------
 
                                         if (doc.contains("rating")) {
                                             Double rating = doc.getDouble("rating");
@@ -148,7 +284,6 @@ public class GymDetailActivity extends AppCompatActivity {
                                         rbAvg.setRating(0);
                                         tvAvgInfo.setText("No reviews yet");
                                     }
-
                                     adapter.notifyDataSetChanged();
                                 });
                     }

@@ -1,5 +1,6 @@
 package com.example.gymquest;
 
+import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
@@ -13,10 +14,10 @@ import android.util.Base64;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.TextView; // Changed from EditText
+import android.widget.TextView;
 import android.widget.Toast;
-import android.Manifest;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -30,29 +31,28 @@ import java.util.Map;
 
 public class AddGymActivity extends AppCompatActivity {
 
-
-    //testing
     private EditText etGymName;
-    private TextView tvLocationStatus; // This is the new Text View
+    private EditText etGymPhone;
+    private EditText etGymDesc; // --- NEW VARIABLE FOR DESCRIPTION
+    private TextView tvLocationStatus;
     private Button btnTakePhoto, btnSaveGym, btnOpenMap;
     private ImageView imgPreview;
 
     private static final int REQUEST_IMAGE_CAPTURE = 101;
     private static final int REQUEST_MAP_PICK = 102;
+    private static final int PERMISSION_REQUEST_CAMERA = 103;
 
     private Bitmap capturedImage;
-
-    // We store the coordinates here now, instead of in the text boxes
     private double currentLat = 0.0;
     private double currentLng = 0.0;
-    private boolean locationSelected = false; // To track if user actually picked one
+    private boolean locationSelected = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_gym);
 
-        // Permission Check (Android 13+)
+        // Permission Check (Notifications)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
@@ -62,7 +62,9 @@ public class AddGymActivity extends AppCompatActivity {
 
         // Bind Views
         etGymName = findViewById(R.id.etGymName);
-        tvLocationStatus = findViewById(R.id.tvLocationStatus); // Bind the new TextView
+        etGymPhone = findViewById(R.id.etGymPhone);
+        etGymDesc = findViewById(R.id.etGymDesc); // --- NEW BINDING
+        tvLocationStatus = findViewById(R.id.tvLocationStatus);
         btnTakePhoto = findViewById(R.id.btnTakePhoto);
         imgPreview = findViewById(R.id.imgPreview);
         btnSaveGym = findViewById(R.id.btnSaveGym);
@@ -75,17 +77,39 @@ public class AddGymActivity extends AppCompatActivity {
         });
 
         // 2. Open Camera
-        btnTakePhoto.setOnClickListener(v -> {
-            Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-                startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
-            } else {
-                Toast.makeText(this, "Camera not found", Toast.LENGTH_SHORT).show();
-            }
-        });
+        btnTakePhoto.setOnClickListener(v -> checkCameraPermissionAndOpen());
 
         // 3. Save
         btnSaveGym.setOnClickListener(v -> saveGymToDatabase());
+    }
+
+    private void checkCameraPermissionAndOpen() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, PERMISSION_REQUEST_CAMERA);
+        } else {
+            openCamera();
+        }
+    }
+
+    private void openCamera() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        try {
+            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+        } catch (Exception e) {
+            Toast.makeText(this, "Camera error", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST_CAMERA) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                openCamera();
+            } else {
+                Toast.makeText(this, "Camera permission required", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     @Override
@@ -93,20 +117,17 @@ public class AddGymActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (resultCode == RESULT_OK && data != null) {
-            // Case A: Camera
             if (requestCode == REQUEST_IMAGE_CAPTURE) {
                 Bundle extras = data.getExtras();
-                capturedImage = (Bitmap) extras.get("data");
-                imgPreview.setImageBitmap(capturedImage);
-            }
-            // Case B: Map Picker
-            else if (requestCode == REQUEST_MAP_PICK) {
-                // Save the data to variables
+                if (extras != null) {
+                    capturedImage = (Bitmap) extras.get("data");
+                    imgPreview.setImageBitmap(capturedImage);
+                }
+            } else if (requestCode == REQUEST_MAP_PICK) {
                 currentLat = data.getDoubleExtra("LAT", 0);
                 currentLng = data.getDoubleExtra("LNG", 0);
                 locationSelected = true;
 
-                // Update the UI text to show the user
                 String locationText = String.format("📍 Selected: %.4f, %.4f", currentLat, currentLng);
                 tvLocationStatus.setText(locationText);
                 tvLocationStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
@@ -116,6 +137,8 @@ public class AddGymActivity extends AppCompatActivity {
 
     private void saveGymToDatabase() {
         String name = etGymName.getText().toString().trim();
+        String phone = etGymPhone.getText().toString().trim();
+        String desc = etGymDesc.getText().toString().trim(); // --- NEW: GET DESCRIPTION
 
         if (name.isEmpty()) {
             Toast.makeText(this, "Please enter a Gym Name", Toast.LENGTH_SHORT).show();
@@ -126,11 +149,15 @@ public class AddGymActivity extends AppCompatActivity {
             return;
         }
 
+        // Note: Phone and Description can be optional, so we don't force check them.
+
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         Map<String, Object> gym = new HashMap<>();
         gym.put("name", name);
-        gym.put("lat", currentLat); // Use the variable
-        gym.put("lng", currentLng); // Use the variable
+        gym.put("phone", phone);
+        gym.put("description", desc); // --- NEW: SAVE DESCRIPTION TO DB
+        gym.put("lat", currentLat);
+        gym.put("lng", currentLng);
 
         if (capturedImage != null) {
             String imageString = bitmapToString(capturedImage);
